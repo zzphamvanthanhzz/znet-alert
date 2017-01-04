@@ -68,7 +68,7 @@ var (
 
 	writeQueue    *InProgressMessageQueue
 	GitHash       = "(none)"
-	AlertTemplate = "[%s][%s] Endpoint: %s ADSL: %s Message: %s" //[Time] Error: product, endpoint, probe, message
+	AlertTemplate = "[%s][%s] [Endpoint]%s ;[ADSL]%s ;[Message] %s" //[Time] Error: product, endpoint, probe, message
 
 	consumer   *cluster.Consumer
 	groupAlert = map[string][]string{}
