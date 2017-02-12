@@ -400,8 +400,9 @@ func main() {
 	}
 
 	if *alertList != "" {
+		log.Debug("%s", *alertList)
 		// "SO:141890297,382344,102441095;MEDIA:255145,119174571,127809384,151681432,487640;NEWS:255145"
-		group := strings.Split(*alertList, ";")
+		group := strings.Split(*alertList, " ")
 		for _, g := range group {
 			gDetails := strings.Split(g, ":")
 			if len(gDetails) != 2 {
