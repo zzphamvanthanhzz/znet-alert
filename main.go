@@ -55,7 +55,12 @@ var (
 	statsdType = flag.String("statsd-type", "standard", "statsd type: standard or datadog (default: standard)")
 	confFile   = flag.String("config", "/etc/raintank/eventtank.ini", "configuration file (default /etc/raintank/eventtank.ini")
 
-	logLevel   = flag.Int("log-level", 2, "log level. 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=ERROR|5=CRITICAL|6=FATAL")
+	logLevel    = flag.Int("log-level", 2, "log level. 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=ERROR|5=CRITICAL|6=FATAL")
+	logpath     = flag.String("log-path", "/data/log/znet-alert/znet-alert.log", "log file location")
+	logmaxlines = flag.Int("log-maxlines", 1000000, "")
+	logmaxsize  = flag.Int("log-maxsize", 1000000, "")
+	logmaxdays  = flag.Int("log-maxdays", 7, "")
+
 	listenAddr = flag.String("listen", ":6061", "http listener address.")
 
 	eventsToEsOK   met.Count
@@ -345,7 +350,6 @@ func NewInProgressMessageQueue() *InProgressMessageQueue {
 
 func main() {
 	flag.Parse()
-
 	// Only try and parse the conf file if it exists
 	if _, err := os.Stat(*confFile); err == nil {
 		conf, err := globalconf.NewWithOptions(&globalconf.Options{Filename: *confFile})
@@ -355,7 +359,9 @@ func main() {
 		conf.ParseAll()
 	}
 
-	log.NewLogger(0, "console", fmt.Sprintf(`{"level": %d, "formatting":true}`, *logLevel))
+	logconfig := fmt.Sprintf(`{"level": %d, "filename": "%s", "maxlines": %d, "maxsize": %d, "maxdays": %d}`,
+		*logLevel, *logpath, *logmaxlines, *logmaxsize, *logmaxdays)
+	log.NewLogger(0, "file", logconfig)
 
 	if *showVersion {
 		fmt.Printf("eventtank (built with %s, git hash %s)\n", runtime.Version(), GitHash)
