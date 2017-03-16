@@ -35,7 +35,7 @@ var (
 
 	topicStr         = flag.String("topic", "probe_events", "Kafka topic (may be given multiple times as a comma-separated list)")
 	group            = flag.String("group", "eventtank", "Kafka consumer group")
-	brokerStr        = flag.String("brokers", "kafka:9092", "tcp address for kafka (may be be given multiple times as a comma-separated list)")
+	brokerStr        = flag.String("brokers", "10.30.80.13:9092", "tcp address for kafka (may be be given multiple times as a comma-separated list)")
 	alertList        = flag.String("alert-list", "SO:141890297,382344,102441095", "List of zaloid to send message")
 	alertgw          = flag.String("alert-gw", "10.30.58.19", "zalo-gw ip")
 	alertgwport      = flag.String("alert-gw-port", "8080", "zalo-gw port")
@@ -48,14 +48,14 @@ var (
 	consumerMaxWaitTime       = flag.String("consumer-max-wait-time", "1s", "The maximum amount of time the broker will wait for Consumer.Fetch.Min bytes to become available before it returns fewer than that anyway")
 	consumerMaxProcessingTime = flag.String("consumer-max-processing-time", "1s", "The maximum amount of time the consumer expects a message takes to process")
 
-	esAddr      = flag.String("elastic-addr", "localhost:9200", "elasticsearch address (default: localhost:9200)")
+	esAddr      = flag.String("elastic-addr", "10.30.80.13:9201", "elasticsearch address (default: localhost:9200)")
 	esBatchSize = flag.Int("elastic-batch-size", 1000, "maximum number of events in each bulkIndex request")
 
-	statsdAddr = flag.String("statsd-addr", "localhost:8125", "statsd address (default: localhost:8125)")
+	statsdAddr = flag.String("statsd-addr", "10.30.80.13:8125", "statsd address (default: localhost:8125)")
 	statsdType = flag.String("statsd-type", "standard", "statsd type: standard or datadog (default: standard)")
 	confFile   = flag.String("config", "/etc/raintank/eventtank.ini", "configuration file (default /etc/raintank/eventtank.ini")
 
-	logLevel    = flag.Int("log-level", 2, "log level. 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=ERROR|5=CRITICAL|6=FATAL")
+	logLevel    = flag.Int("log-level", 1, "log level. 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=ERROR|5=CRITICAL|6=FATAL")
 	logpath     = flag.String("log-path", "/data/log/znet-alert/znet-alert.log", "log file location")
 	logmaxlines = flag.Int("log-maxlines", 1000000, "")
 	logmaxsize  = flag.Int("log-maxsize", 1000000, "")
@@ -80,10 +80,14 @@ var (
 )
 
 func alert(event *schema.ProbeEvent) {
-	// log.Debug("Process events: probe: %s, orgId: %d, type: %s, tags: %s, servirty: %s, message: %s at: %s",
-	// 	event.Source, event.OrgId, event.EventType, event.Tags, event.Severity, event.Message, time.Unix(event.Timestamp/1000, 0))
+	log.Debug("Process events: probe: %s, orgId: %d, type: %s, tags: %s, servirty: %s, message: %s at: %s",
+		event.Source, event.OrgId, event.EventType, event.Tags, event.Severity, event.Message, time.Unix(event.Timestamp/1000, 0))
 	serverity := event.Severity
 	if serverity == "OK" {
+		return
+	}
+
+	if strings.Contains(event.Message, "i/o timeout") {
 		return
 	}
 	group, ok := event.Tags["product"]
@@ -94,6 +98,11 @@ func alert(event *schema.ProbeEvent) {
 	if !ok {
 		return
 	}
+
+	if probe == "vnpt_hn" {
+		return
+	}
+
 	endpoint, ok := event.Tags["endpoint"]
 	if !ok {
 		return
@@ -102,7 +111,7 @@ func alert(event *schema.ProbeEvent) {
 	log.Debug("Alert Message is: ", message)
 	//Always alert to SO
 	for _, id := range groupAlert["SO"] {
-		fmt.Println("Alert to: %s of Group: SO", id)
+		fmt.Printf("Alert to: %s of Group: SO\n", id)
 		//http://%s:%s/api/internal/nagios_alert?from=%s&to=%s&msg=%s
 		alertUrl := fmt.Sprintf(*alertUrlTemplate, *alertgw, *alertgwport, *alertpageid, id, url.QueryEscape(message))
 		_, err := url.Parse(alertUrl)
@@ -120,9 +129,9 @@ func alert(event *schema.ProbeEvent) {
 
 	if group != "Default" {
 		for _, id := range groupAlert[group] {
-			fmt.Printf("Alert to: %s of Group: %s\n", id, group)
+			log.Info("Alert to: %s of Group: %s\n", id, group)
 			//http://%s:%s/api/internal/nagios_alert?from=%s&to=%s&msg=%s
-			alertUrl := fmt.Sprintf(*alertUrlTemplate, alertgw, alertgwport, alertpageid, id, message)
+			alertUrl := fmt.Sprintf(*alertUrlTemplate, *alertgw, *alertgwport, *alertpageid, id, url.QueryEscape(message))
 			_, err := url.Parse(alertUrl)
 			if err != nil {
 				log.Error(3, "Alert: Error with url alert %s with err: %s", alertUrl, err.Error())
@@ -195,6 +204,7 @@ type InProgressMessageQueue struct {
 }
 
 func (q *InProgressMessageQueue) ProcessInProgress() {
+	fmt.Println("ProcessInProgress")
 	for in := range q.ProcessChan {
 		alert(in.Event)
 		writeQueue.EnQueue(in)
