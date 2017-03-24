@@ -87,7 +87,7 @@ func alert(event *schema.ProbeEvent) {
 		return
 	}
 
-	if strings.Contains(event.Message, "i/o timeout") {
+	if strings.Contains(event.Message, "i/o timeout") || strings.Contains(event.Message, "Timeout resolving IP addr for") {
 		return
 	}
 	group, ok := event.Tags["product"]
